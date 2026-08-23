@@ -1,0 +1,605 @@
+--[[
+    NATIVE ROBLOX STUDIO EXECUTOR GUI & AIMBOT V12 (LOCAL SCRIPT)
+    Instructions: Place inside StarterPlayer > StarterPlayerScripts
+]]--
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local TeleportService = game:GetService("TeleportService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- ================= CONFIGURATION SETTINGS =================
+local _G_AimbotEnabled = false
+local _G_TeamCheck = true
+local _G_TargetPart = "Head" -- "Head" or "HumanoidRootPart"
+local _G_FOVRadius = 90
+local _G_Smoothness = 5 -- 0 = instant, higher = smoother
+local _G_EspEnabled = false
+local _G_MultiHeadTP = false
+
+-- Clear out any old UI if re-running
+local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+if playerGui:FindFirstChild("StudioExecutorEspOutlineHub") then
+    playerGui.StudioExecutorEspOutlineHub:Destroy()
+end
+
+-- ================= CREATE GUI (BLUE GLOW THEME) =================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "StudioExecutorEspOutlineHub"
+ScreenGui.Parent = playerGui
+ScreenGui.ResetOnSpawn = false
+
+-- Floating Executor Toggle Button (Δ) with Blue Glow
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Parent = ScreenGui
+ToggleButton.BackgroundColor3 = Color3.fromRGB(10, 20, 35)
+ToggleButton.BackgroundTransparency = 0.15
+ToggleButton.Position = UDim2.new(0.02, 0, 0.15, 0)
+ToggleButton.Size = UDim2.new(0, 44, 0, 44)
+ToggleButton.Text = "Δ"
+ToggleButton.TextColor3 = Color3.fromRGB(0, 170, 255)
+ToggleButton.TextSize = 22
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Active = true
+ToggleButton.Draggable = true
+ToggleButton.BorderSizePixel = 0
+
+local ToggleCorner = Instance.new("UICorner") ToggleCorner.CornerRadius = UDim.new(0, 10) ToggleCorner.Parent = ToggleButton
+local ToggleStroke = Instance.new("UIStroke") ToggleStroke.Parent = ToggleButton ToggleStroke.Color = Color3.fromRGB(0, 170, 255) ToggleStroke.Thickness = 1.8
+
+-- Main Frame (Blue Glow Theme & Semi-Transparent)
+local MainFrame = Instance.new("Frame")
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 14, 24)
+MainFrame.BackgroundTransparency = 0.15
+MainFrame.Position = UDim2.new(0.5, -180, 0.5, -210)
+MainFrame.Size = UDim2.new(0, 360, 0, 420)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = true
+MainFrame.ClipsDescendants = true
+
+local MainCorner = Instance.new("UICorner") MainCorner.CornerRadius = UDim.new(0, 12) MainCorner.Parent = MainFrame
+local MainStroke = Instance.new("UIStroke") MainStroke.Parent = MainFrame MainStroke.Color = Color3.fromRGB(0, 170, 255) MainStroke.Thickness = 1.8
+
+local MainGradient = Instance.new("UIGradient")
+MainGradient.Parent = MainFrame
+MainGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(12, 24, 45)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(6, 8, 14))
+})
+MainGradient.Rotation = 90
+MainGradient.Transparency = NumberSequence.new(0.1)
+
+-- Header
+local Header = Instance.new("Frame")
+Header.Parent = MainFrame
+Header.BackgroundColor3 = Color3.fromRGB(15, 28, 52)
+Header.BackgroundTransparency = 0.1
+Header.Size = UDim2.new(1, 0, 0, 38)
+Header.BorderSizePixel = 0
+local HeaderCorner = Instance.new("UICorner") HeaderCorner.CornerRadius = UDim.new(0, 12) HeaderCorner.Parent = Header
+
+local Title = Instance.new("TextLabel")
+Title.Parent = Header
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0.04, 0, 0, 0)
+Title.Size = UDim2.new(0.8, 0, 1, 0)
+Title.Text = "⚡ ARSENAL // ESP OUTLINE HUB"
+Title.TextColor3 = Color3.fromRGB(0, 170, 255)
+Title.TextSize = 12
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Parent = Header
+CloseBtn.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
+CloseBtn.BackgroundTransparency = 0.15
+CloseBtn.Position = UDim2.new(0.9, 0, 0.2, 0)
+CloseBtn.Size = UDim2.new(0, 24, 0, 24)
+CloseBtn.Text = "—"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 11
+CloseBtn.Font = Enum.Font.GothamBold
+local CloseCorner = Instance.new("UICorner") CloseCorner.CornerRadius = UDim.new(1, 0) CloseCorner.Parent = CloseBtn
+
+-- ================= TAB SWITCHER BAR (2 PAGES) =================
+local TabBar = Instance.new("Frame")
+TabBar.Parent = MainFrame
+TabBar.BackgroundColor3 = Color3.fromRGB(12, 18, 30)
+TabBar.Position = UDim2.new(0, 0, 0, 38)
+TabBar.Size = UDim2.new(1, 0, 0, 32)
+TabBar.BorderSizePixel = 0
+
+local function createTabBtn(name, xPos)
+    local btn = Instance.new("TextButton")
+    btn.Parent = TabBar
+    btn.BackgroundColor3 = Color3.fromRGB(16, 25, 42)
+    btn.Position = UDim2.new(xPos, 0, 0.15, 0)
+    btn.Size = UDim2.new(0, 170, 0, 23)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(160, 180, 200)
+    btn.TextSize = 11
+    btn.Font = Enum.Font.GothamBold
+    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 6) c.Parent = btn
+    return btn
+end
+
+local Tab1Btn = createTabBtn("🎯 Aimbot & Combat", 0.04)
+local Tab2Btn = createTabBtn("⚙️ Settings", 0.52)
+
+Tab1Btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+Tab1Btn.TextColor3 = Color3.fromRGB(10, 14, 24)
+
+-- Pages Containers
+local Page1 = Instance.new("ScrollingFrame")
+Page1.Parent = MainFrame Page1.BackgroundTransparency = 1 Page1.Position = UDim2.new(0, 0, 0, 75) Page1.Size = UDim2.new(1, 0, 1, -75) Page1.CanvasSize = UDim2.new(0, 0, 2.6, 0) Page1.ScrollBarThickness = 3 Page1.ScrollBarImageColor3 = Color3.fromRGB(0, 170, 255) Page1.Visible = true
+
+local Page2 = Instance.new("ScrollingFrame")
+Page2.Parent = MainFrame Page2.BackgroundTransparency = 1 Page2.Position = UDim2.new(0, 0, 0, 75) Page2.Size = UDim2.new(1, 0, 1, -75) Page2.CanvasSize = UDim2.new(0, 0, 1.5, 0) Page2.ScrollBarThickness = 3 Page2.ScrollBarImageColor3 = Color3.fromRGB(0, 170, 255) Page2.Visible = false
+
+Tab1Btn.MouseButton1Click:Connect(function()
+    Page1.Visible = true Page2.Visible = false
+    Tab1Btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255) Tab1Btn.TextColor3 = Color3.fromRGB(10, 14, 24)
+    Tab2Btn.BackgroundColor3 = Color3.fromRGB(16, 25, 42) Tab2Btn.TextColor3 = Color3.fromRGB(160, 180, 200)
+end)
+
+Tab2Btn.MouseButton1Click:Connect(function()
+    Page1.Visible = false Page2.Visible = true
+    Tab2Btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255) Tab2Btn.TextColor3 = Color3.fromRGB(10, 14, 24)
+    Tab1Btn.BackgroundColor3 = Color3.fromRGB(16, 25, 42) Tab1Btn.TextColor3 = Color3.fromRGB(160, 180, 200)
+end)
+
+-- Helper to create blue styled toggles
+local function createToggle(parent, labelText, yPos, callback)
+    local btn = Instance.new("TextButton")
+    btn.Parent = parent
+    btn.BackgroundColor3 = Color3.fromRGB(16, 25, 42)
+    btn.BackgroundTransparency = 0.2
+    btn.Position = UDim2.new(0.05, 0, 0, yPos)
+    btn.Size = UDim2.new(0.9, 0, 0, 36)
+    btn.Text = labelText .. ": OFF"
+    btn.TextColor3 = Color3.fromRGB(200, 220, 240)
+    btn.TextSize = 12
+    btn.Font = Enum.Font.GothamMedium
+    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 7) c.Parent = btn
+    local s = Instance.new("UIStroke") s.Parent = btn s.Color = Color3.fromRGB(0, 120, 200) s.Thickness = 1
+    
+    local state = false
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        if state then
+            btn.Text = labelText .. ": ON"
+            btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+            btn.TextColor3 = Color3.fromRGB(10, 14, 24)
+        else
+            btn.Text = labelText .. ": OFF"
+            btn.BackgroundColor3 = Color3.fromRGB(16, 25, 42)
+            btn.TextColor3 = Color3.fromRGB(200, 220, 240)
+        end
+        callback(state)
+    end)
+    return btn
+end
+
+-- Helper to create blue selectors
+local function createSelector(parent, labelText, options, yPos, callback)
+    local idx = 1
+    local btn = Instance.new("TextButton")
+    btn.Parent = parent
+    btn.BackgroundColor3 = Color3.fromRGB(20, 32, 54)
+    btn.BackgroundTransparency = 0.2
+    btn.Position = UDim2.new(0.05, 0, 0, yPos)
+    btn.Size = UDim2.new(0.9, 0, 0, 36)
+    btn.Text = labelText .. ": " .. options[idx]
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 12
+    btn.Font = Enum.Font.GothamMedium
+    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 7) c.Parent = btn
+    local s = Instance.new("UIStroke") s.Parent = btn s.Color = Color3.fromRGB(0, 140, 220) s.Thickness = 1
+    
+    btn.MouseButton1Click:Connect(function()
+        idx = idx + 1
+        if idx > #options then idx = 1 end
+        btn.Text = labelText .. ": " .. options[idx]
+        callback(options[idx])
+    end)
+    return btn
+end
+
+-- Helper to create utility action buttons
+local function createActionButton(parent, labelText, yPos, color, callback)
+    local btn = Instance.new("TextButton")
+    btn.Parent = parent
+    btn.BackgroundColor3 = color
+    btn.BackgroundTransparency = 0.15
+    btn.Position = UDim2.new(0.05, 0, 0, yPos)
+    btn.Size = UDim2.new(0.9, 0, 0, 36)
+    btn.Text = labelText
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 12
+    btn.Font = Enum.Font.GothamBold
+    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 7) c.Parent = btn
+    local s = Instance.new("UIStroke") s.Parent = btn s.Color = Color3.fromRGB(255, 255, 255) s.Thickness = 1
+    
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+local curY = 12
+local spacing = 42
+
+-- ================= PAGE 1 CONTROLS =================
+createToggle(Page1, "Team Check (Enemies Only)", curY, function(enabled) _G_TeamCheck = enabled end)
+curY = curY + spacing
+
+createToggle(Page1, "Aimbot Master Toggle", curY, function(enabled) _G_AimbotEnabled = enabled end)
+curY = curY + spacing
+
+createToggle(Page1, "Enemy ESP Highlights", curY, function(enabled)
+    _G_EspEnabled = enabled
+    if not enabled then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("ArsenalBlueHighlight") then
+                p.Character.ArsenalBlueHighlight:Destroy()
+            end
+        end
+    end
+end)
+curY = curY + spacing
+
+-- ESP Color Palette Options
+local espColorPalette = {
+    {Name = "Purple", Color = Color3.fromRGB(170, 0, 255)},
+    {Name = "Green", Color = Color3.fromRGB(0, 255, 0)},
+    {Name = "Red", Color = Color3.fromRGB(255, 0, 0)},
+    {Name = "Blue", Color = Color3.fromRGB(0, 170, 255)},
+    {Name = "White", Color = Color3.fromRGB(255, 255, 255)},
+    {Name = "Black", Color = Color3.fromRGB(15, 15, 15)},
+    {Name = "Orange", Color = Color3.fromRGB(255, 128, 0)},
+    {Name = "Brown", Color = Color3.fromRGB(139, 69, 19)},
+    {Name = "Gray", Color = Color3.fromRGB(128, 128, 128)}
+}
+local espColorIdx = 1
+local EspColorBtn = Instance.new("TextButton")
+EspColorBtn.Parent = Page1
+EspColorBtn.BackgroundColor3 = Color3.fromRGB(20, 32, 54)
+EspColorBtn.BackgroundTransparency = 0.2
+EspColorBtn.Position = UDim2.new(0.05, 0, 0, curY)
+EspColorBtn.Size = UDim2.new(0.9, 0, 0, 36)
+EspColorBtn.Text = "ESP Color: Purple"
+EspColorBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+EspColorBtn.TextSize = 12
+EspColorBtn.Font = Enum.Font.GothamMedium
+local ecc = Instance.new("UICorner") ecc.CornerRadius = UDim.new(0, 7) ecc.Parent = EspColorBtn
+local ecs = Instance.new("UIStroke") ecs.Parent = EspColorBtn ecs.Color = Color3.fromRGB(0, 140, 220) ecs.Thickness = 1
+
+EspColorBtn.MouseButton1Click:Connect(function()
+    espColorIdx = espColorIdx + 1
+    if espColorIdx > #espColorPalette then espColorIdx = 1 end
+    EspColorBtn.Text = "ESP Color: " .. espColorPalette[espColorIdx].Name
+end)
+curY = curY + spacing
+
+createSelector(Page1, "Aimbot Target Part", {"Head", "HumanoidRootPart"}, curY, function(opt) _G_TargetPart = opt end)
+curY = curY + spacing
+
+local fovOptions = {60, 90, 120, 150, 175, 200, 225, 250}
+local fovIdx = 2
+local FovBtn = Instance.new("TextButton")
+FovBtn.Parent = Page1
+FovBtn.BackgroundColor3 = Color3.fromRGB(20, 32, 54)
+FovBtn.BackgroundTransparency = 0.2
+FovBtn.Position = UDim2.new(0.05, 0, 0, curY)
+FovBtn.Size = UDim2.new(0.9, 0, 0, 36)
+FovBtn.Text = "FOV Radius: 90"
+FovBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+FovBtn.TextSize = 12
+FovBtn.Font = Enum.Font.GothamMedium
+local fc = Instance.new("UICorner") fc.CornerRadius = UDim.new(0, 7) fc.Parent = FovBtn
+local fs = Instance.new("UIStroke") fs.Parent = FovBtn fs.Color = Color3.fromRGB(0, 140, 220) fs.Thickness = 1
+
+FovBtn.MouseButton1Click:Connect(function()
+    fovIdx = fovIdx + 1
+    if fovIdx > #fovOptions then fovIdx = 1 end
+    _G_FOVRadius = fovOptions[fovIdx]
+    FovBtn.Text = "FOV Radius: " .. tostring(_G_FOVRadius)
+end)
+curY = curY + spacing
+
+local smoothOptions = {0, 2, 5, 10, 15}
+local smoothIdx = 3
+local SmoothBtn = Instance.new("TextButton")
+SmoothBtn.Parent = Page1
+SmoothBtn.BackgroundColor3 = Color3.fromRGB(20, 32, 54)
+SmoothBtn.BackgroundTransparency = 0.2
+SmoothBtn.Position = UDim2.new(0.05, 0, 0, curY)
+SmoothBtn.Size = UDim2.new(0.9, 0, 0, 36)
+SmoothBtn.Text = "Aimbot Smoothness: 5"
+SmoothBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SmoothBtn.TextSize = 12
+SmoothBtn.Font = Enum.Font.GothamMedium
+local sc = Instance.new("UICorner") sc.CornerRadius = UDim.new(0, 7) sc.Parent = SmoothBtn
+local ss = Instance.new("UIStroke") ss.Parent = SmoothBtn ss.Color = Color3.fromRGB(0, 140, 220) ss.Thickness = 1
+
+SmoothBtn.MouseButton1Click:Connect(function()
+    smoothIdx = smoothIdx + 1
+    if smoothIdx > #smoothOptions then smoothIdx = 1 end
+    _G_Smoothness = smoothOptions[smoothIdx]
+    SmoothBtn.Text = "Aimbot Smoothness: " .. tostring(_G_Smoothness)
+end)
+curY = curY + spacing
+
+local fovColors = {
+    {Name = "Green", Color = Color3.fromRGB(0, 255, 0)},
+    {Name = "Red", Color = Color3.fromRGB(255, 0, 0)},
+    {Name = "Blue", Color = Color3.fromRGB(0, 170, 255)},
+    {Name = "White", Color = Color3.fromRGB(255, 255, 255)},
+    {Name = "Yellow", Color = Color3.fromRGB(255, 255, 0)},
+    {Name = "Purple", Color = Color3.fromRGB(170, 0, 255)}
+}
+local colorIdx = 1
+local ColorBtn = Instance.new("TextButton")
+ColorBtn.Parent = Page1
+ColorBtn.BackgroundColor3 = Color3.fromRGB(20, 32, 54)
+ColorBtn.BackgroundTransparency = 0.2
+ColorBtn.Position = UDim2.new(0.05, 0, 0, curY)
+ColorBtn.Size = UDim2.new(0.9, 0, 0, 36)
+ColorBtn.Text = "FOV Color: Green"
+ColorBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ColorBtn.TextSize = 12
+ColorBtn.Font = Enum.Font.GothamMedium
+local cc = Instance.new("UICorner") cc.CornerRadius = UDim.new(0, 7) cc.Parent = ColorBtn
+local cs = Instance.new("UIStroke") cs.Parent = ColorBtn cs.Color = Color3.fromRGB(0, 140, 220) cs.Thickness = 1
+
+ColorBtn.MouseButton1Click:Connect(function()
+    colorIdx = colorIdx + 1
+    if colorIdx > #fovColors then colorIdx = 1 end
+    ColorBtn.Text = "FOV Color: " .. fovColors[colorIdx].Name
+end)
+curY = curY + spacing
+
+createToggle(Page1, "Multi-TP Enemies (Head Auto-Switch)", curY, function(enabled) _G_MultiHeadTP = enabled end)
+
+-- ================= PAGE 2 CONTROLS (SETTINGS) =================
+local sY = 15
+
+createActionButton(Page2, "🔄 Rejoin Same Server", sY, Color3.fromRGB(0, 100, 180), function()
+    pcall(function()
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+    end)
+end)
+sY = sY + spacing
+
+createActionButton(Page2, "🚫 Remove All Textures", sY, Color3.fromRGB(0, 120, 200), function()
+    pcall(function()
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("Texture") or obj:IsA("Decal") then
+                obj.Transparency = 1
+            elseif obj:IsA("BasePart") then
+                obj.Material = Enum.Material.SmoothPlastic
+            end
+        end
+    end)
+end)
+sY = sY + spacing
+
+createActionButton(Page2, "⚡ Anti-Lag Optimizer", sY, Color3.fromRGB(0, 140, 100), function()
+    pcall(function()
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 9e9
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") then
+                obj.Enabled = false
+            end
+        end
+    end)
+end)
+sY = sY + spacing
+
+createActionButton(Page2, "♻️ Reset Character", sY, Color3.fromRGB(180, 100, 30), function()
+    pcall(function()
+        LocalPlayer.Character.Humanoid.Health = 0
+    end)
+end)
+sY = sY + spacing
+
+createActionButton(Page2, "🚪 Leave Game", sY, Color3.fromRGB(200, 50, 50), function()
+    pcall(function()
+        LocalPlayer:Kick("Disconnected via Settings Hub.")
+    end)
+end)
+
+-- ================= TEAM CHECK & ENEMY DETECTION =================
+local function isEnemy(player)
+    if player == LocalPlayer then return false end
+    if not _G_TeamCheck then return true end
+    
+    if player.Team and LocalPlayer.Team then
+        return player.Team ~= LocalPlayer.Team
+    end
+    if player.TeamColor and LocalPlayer.TeamColor then
+        return player.TeamColor ~= LocalPlayer.TeamColor
+    end
+    return true
+end
+
+-- ================= UI ANIMATION LOGIC =================
+local isOpen = true
+local function toggleUI()
+    isOpen = not isOpen
+    if isOpen then
+        MainFrame.Visible = true
+        ToggleButton.Visible = false
+        MainFrame.Size = UDim2.new(0, 0, 0, 0)
+        MainFrame.Position = ToggleButton.Position
+        TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 360, 0, 420),
+            Position = UDim2.new(0.5, -180, 0.5, -210)
+        }):Play()
+    else
+        local tw = TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = ToggleButton.Position
+        })
+        tw:Play()
+        tw.Completed:Connect(function()
+            if not isOpen then
+                MainFrame.Visible = false
+                ToggleButton.Visible = true
+            end
+        end)
+    end
+end
+
+ToggleButton.MouseButton1Click:Connect(toggleUI)
+CloseBtn.MouseButton1Click:Connect(toggleUI)
+
+-- ================= ESP & FOV DRAWING =================
+local FOVDrawing = Drawing.new("Circle")
+FOVDrawing.Visible = true
+FOVDrawing.Filled = false
+FOVDrawing.Thickness = 3.5
+FOVDrawing.Transparency = 0.9
+
+RunService.RenderStepped:Connect(function()
+    FOVDrawing.Visible = _G_AimbotEnabled
+    FOVDrawing.Radius = _G_FOVRadius
+    FOVDrawing.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOVDrawing.Color = fovColors[colorIdx].Color
+    
+    local currentEspColor = espColorPalette[espColorIdx].Color
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            if _G_EspEnabled and isEnemy(p) then
+                local hl = p.Character:FindFirstChild("ArsenalBlueHighlight")
+                if not hl then
+                    hl = Instance.new("Highlight")
+                    hl.Name = "ArsenalBlueHighlight"
+                    hl.Parent = p.Character
+                end
+                -- Applies selected color to both fill and outline
+                hl.FillColor = currentEspColor
+                hl.OutlineColor = currentEspColor
+            else
+                if p.Character:FindFirstChild("ArsenalBlueHighlight") then
+                    p.Character.ArsenalBlueHighlight:Destroy()
+                end
+            end
+        end
+    end
+end)
+
+-- ================= AIMBOT ENGINE =================
+local function getClosestEnemy()
+    local bestTarget = nil
+    local shortestDist = _G_FOVRadius
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    
+    for _, p in ipairs(Players:GetPlayers()) do
+        if isEnemy(p) and p.Character and p.Character:FindFirstChild(_G_TargetPart) then
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                local part = p.Character[_G_TargetPart]
+                local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        bestTarget = part
+                    end
+                end
+            end
+        end
+    end
+    return bestTarget
+end
+
+RunService.RenderStepped:Connect(function()
+    if not _G_AimbotEnabled then return end
+    
+    local target = getClosestEnemy()
+    if target then
+        local targetCFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+        if _G_Smoothness == 0 then
+            Camera.CFrame = targetCFrame
+        else
+            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 1 / (_G_Smoothness * 0.4))
+        end
+    end
+end)
+
+-- ================= MULTI-TP ENEMIES ENGINE =================
+local activeHeadTPTarget = nil
+local deathConnection = nil
+
+local function getNewRandomArsenalEnemy()
+    local availableEnemies = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if isEnemy(p) and p.Character and p.Character:FindFirstChild("Head") then
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                table.insert(availableEnemies, p)
+            end
+        end
+    end
+    if #availableEnemies > 0 then
+        return availableEnemies[math.random(1, #availableEnemies)]
+    end
+    return nil
+end
+
+local function watchArsenalTargetDeath(targetPlayer)
+    if deathConnection then
+        deathConnection:Disconnect()
+        deathConnection = nil
+    end
+    if targetPlayer and targetPlayer.Character then
+        local hum = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            deathConnection = hum.Died:Connect(function()
+                activeHeadTPTarget = getNewRandomArsenalEnemy()
+                watchArsenalTargetDeath(activeHeadTPTarget)
+            end)
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(function()
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+    local rootPart = myChar.HumanoidRootPart
+    
+    if _G_MultiHeadTP then
+        local targetValid = false
+        if activeHeadTPTarget and activeHeadTPTarget.Character then
+            local hum = activeHeadTPTarget.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 and activeHeadTPTarget.Character:FindFirstChild("Head") then
+                targetValid = true
+            end
+        end
+        
+        if not targetValid then
+            activeHeadTPTarget = getNewRandomArsenalEnemy()
+            watchArsenalTargetDeath(activeHeadTPTarget)
+        end
+        
+        if activeHeadTPTarget and activeHeadTPTarget.Character and activeHeadTPTarget.Character:FindFirstChild("Head") then
+            local targetHead = activeHeadTPTarget.Character.Head
+            rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            rootPart.CFrame = targetHead.CFrame * CFrame.new(0, 3, 0)
+        end
+    else
+        activeHeadTPTarget = nil
+        if deathConnection then
+            deathConnection:Disconnect()
+            deathConnection = nil
+        end
+    end
+end)
